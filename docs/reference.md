@@ -37,28 +37,145 @@
 
 所有公开函数的首参均为 `const Sc8815 &chip`，用于提供七位地址、同步 I²C 传输函数和 RS1、RS2 阻值。返回 `true` 表示函数涉及的操作全部成功。传输失败或接口校验失败时返回 `false`。读函数的输出引用只在成功时使用。写函数通过 I²C 更新寄存器，输出为操作结果。
 
-| 函数 | 作用 | 其余输入 | 输出 | 实现原理 |
-| --- | --- | --- | --- | --- |
-| `sc8815Begin` | 探测设备 | 无 | 应答结果 | 以两个空缓冲调用传输函数，仅发送地址探测。 |
-| `sc8815ReadRegister` | 读取一个寄存器字节 | `reg`，寄存器地址 | `data`，原始字节 | 写入地址后重复起始读 1 字节，成功后赋值。 |
-| `sc8815ConfigureBatteryCharging` | 配置电池充电参数 | `config`，`Sc8815VbatSetConfig` | 成功标志 | 将 IR 补偿、VBAT 选择、节数和单节目标电压写入 `0x00`。 |
-| `sc8815ConfigureMeasurementAndLimitRatios` | 配置监测与限流倍率 | `config`，`Sc8815RatioConfig` | 成功标志 | 打包四种倍率，读改写 `0x08` 并保留 [7:5]。 |
-| `sc8815ConfigureModeAndSwitching` | 配置 OTG 与开关时序 | `config`，`Sc8815ModeAndSwitchingConfig` | 成功标志 | 编码 OTG、VINREG 倍率、频率与死区，读改写 `0x09` 并保留 [6:5]。 |
-| `sc8815ConfigureChargingAndFeedback` | 配置充电、电压反馈与过压保护选项 | `config`，`Sc8815ChargingAndFeedbackConfig` | 成功标志 | 编码电流基准、涓流、终止、反馈和 OVP 位，读改写 `0x0A` 并保留 [1:0]。 |
-| `sc8815ConfigureDitheringAndSlewRate` | 配置工厂位、抖动和斜率 | `config`，`Sc8815DitheringAndSlewRateConfig` | 成功标志 | 编码低 4 位，读改写 `0x0B` 并保留 [7:4]。 |
-| `sc8815ConfigurePowerPathAndMonitoring` | 配置功率路径、ADC 和环路 | `config`，`Sc8815PowerPathAndMonitoringConfig` | 成功标志 | 将 PGATE、GPO、ADC、环路、折返、终止阈值和 PFM 打包后写入 `0x0C`。 |
-| `sc8815SetVbusRefI` | 设置内部 VBUS 参考 | `ref_mv`，参考电压 mV | 成功标志 | 以 2 mV 步进计算 10 位编码，保留低寄存器低六位，从 `0x01` 连续写两字节。 |
-| `sc8815SetVbusRefE` | 设置外部 VBUS 参考 | `ref_mv`，参考电压 mV | 成功标志 | 以同样的 10 位编码从 `0x03` 连续写两字节。调用方按外部反馈比分配参考电压。 |
-| `sc8815SetIbusLimit` | 设置总线电流上限 | `current_a`，限流 A | 成功标志 | 从 `0x08` 读取 IBUS 倍率，以 RS1 计算 8 位编码并写 `0x05`。 |
-| `sc8815SetIbatLimit` | 设置电池电流上限 | `current_a`，限流 A | 成功标志 | 从 `0x08` 读取 IBAT 倍率，以 RS2 计算 8 位编码并写 `0x06`。 |
-| `sc8815SetVinreg` | 设置 VINREG 动态电源管理参考 | `voltage_mv`，参考电压 mV | 成功标志 | 从 `0x09` 读取倍率位，用 40 或 100 mV 步进计算 `电压 / 步进 - 1` 并写 `0x07`。 |
-| `sc8815ReadVbusVoltage` | 读取 VBUS 电压 | 无 | `voltage_mv`，mV | 从 `0x0D` 连续读两字节；按 `0x08` 的 VBUS 倍率选择 25 或 10 mV/步。 |
-| `sc8815ReadVbatVoltage` | 读取 VBAT 电压 | 无 | `voltage_mv`，mV | 从 `0x0F` 连续读两字节；按 `0x08` 的 VBAT 监测倍率选择 25 或 10 mV/步。 |
-| `sc8815ReadIbusCurrent` | 读取 IBUS 电流 | 无 | `current_a`，A | 从 `0x11` 连续读两字节，按 `0x08` 的 IBUS 倍率与 RS1 换算。 |
-| `sc8815ReadIbatCurrent` | 读取 IBAT 电流 | 无 | `current_a`，A | 从 `0x13` 连续读两字节，按 `0x08` 的 IBAT 倍率与 RS2 换算。 |
-| `sc8815ReadAdinVoltage` | 读取 ADIN 电压 | 无 | `voltage_mv`，mV | 从 `0x15` 连续读两字节，按 2 mV/步换算。 |
-| `sc8815GetStatus` | 读取中断状态 | 无 | `status`，`Sc8815Status` | 读 `0x17` 并拆出 AC_OK、INDET、VBUS_SHORT、OTP、EOC。读取会清除 INDET。 |
-| `sc8815SetIrqMask` | 写入中断掩码 | `config`，`Sc8815IrqMaskConfig` | 成功标志 | 读改写 `0x19`，保留 [7] 和 [4]，将 [0] 置 1。 |
+### `sc8815Begin`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果
+
+探测设备。以两个空缓冲调用传输函数，仅发送地址探测。
+
+### `sc8815ReadRegister`
+
+- **输入** `chip`、`reg`，寄存器地址
+- **输出** `bool` 操作结果，成功时写入`data`，原始字节
+
+读取一个寄存器字节。写入地址后重复起始读 1 字节，成功后赋值。
+
+### `sc8815VbatSet`
+
+- **输入** `chip`、`config`，`Sc8815VbatSetConfig`
+- **输出** `bool` 操作结果
+
+配置电池充电参数。将 IR 补偿、VBAT 选择、节数和单节目标电压写入 `0x00`。
+
+### `sc8815Ratio`
+
+- **输入** `chip`、`config`，`Sc8815RatioConfig`
+- **输出** `bool` 操作结果
+
+配置监测与限流倍率。打包四种倍率，读改写 `0x08` 并保留 [7:5]。
+
+### `sc8815Ctrl0Set`
+
+- **输入** `chip`、`config`，`Sc8815ModeAndSwitchingConfig`
+- **输出** `bool` 操作结果
+
+配置 OTG 与开关时序。编码 OTG、VINREG 倍率、频率与死区，读改写 `0x09` 并保留 [6:5]。
+
+### `sc8815Ctrl1Set`
+
+- **输入** `chip`、`config`，`Sc8815ChargingAndFeedbackConfig`
+- **输出** `bool` 操作结果
+
+配置充电、电压反馈与过压保护选项。编码电流基准、涓流、终止、反馈和 OVP 位，读改写 `0x0A` 并保留 [1:0]。
+
+### `sc8815Ctrl2Set`
+
+- **输入** `chip`、`config`，`Sc8815DitheringAndSlewRateConfig`
+- **输出** `bool` 操作结果
+
+配置工厂位、抖动和斜率。编码低 4 位，读改写 `0x0B` 并保留 [7:4]。
+
+### `sc8815Ctrl3Set`
+
+- **输入** `chip`、`config`，`Sc8815PowerPathAndMonitoringConfig`
+- **输出** `bool` 操作结果
+
+配置功率路径、ADC 和环路。将 PGATE、GPO、ADC、环路、折返、终止阈值和 PFM 打包后写入 `0x0C`。
+
+### `sc8815VbusRefISet`
+
+- **输入** `chip`、`ref_mv`，参考电压 mV
+- **输出** `bool` 操作结果
+
+设置内部 VBUS 参考。以 2 mV 步进计算 10 位编码，保留低寄存器低六位，从 `0x01` 连续写两字节。
+
+### `sc8815VbusRefESet`
+
+- **输入** `chip`、`ref_mv`，参考电压 mV
+- **输出** `bool` 操作结果
+
+设置外部 VBUS 参考。以同样的 10 位编码从 `0x03` 连续写两字节。调用方按外部反馈比分配参考电压。
+
+### `sc8815IbusLimSet`
+
+- **输入** `chip`、`current_a`，限流 A
+- **输出** `bool` 操作结果
+
+设置总线电流上限。从 `0x08` 读取 IBUS 倍率，以 RS1 计算 8 位编码并写 `0x05`。
+
+### `sc8815IbatLimSet`
+
+- **输入** `chip`、`current_a`，限流 A
+- **输出** `bool` 操作结果
+
+设置电池电流上限。从 `0x08` 读取 IBAT 倍率，以 RS2 计算 8 位编码并写 `0x06`。
+
+### `sc8815VinregSet`
+
+- **输入** `chip`、`voltage_mv`，参考电压 mV
+- **输出** `bool` 操作结果
+
+设置 VINREG 动态电源管理参考。从 `0x09` 读取倍率位，用 40 或 100 mV 步进计算 `电压 / 步进 - 1` 并写 `0x07`。
+
+### `sc8815ReadVbusVoltage`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果，成功时写入`voltage_mv`，mV
+
+读取 VBUS 电压。从 `0x0D` 连续读两字节，按 `0x08` 的 VBUS 倍率选择 25 或 10 mV/步。
+
+### `sc8815ReadVbatVoltage`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果，成功时写入`voltage_mv`，mV
+
+读取 VBAT 电压。从 `0x0F` 连续读两字节，按 `0x08` 的 VBAT 监测倍率选择 25 或 10 mV/步。
+
+### `sc8815ReadIbusCurrent`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果，成功时写入`current_a`，A
+
+读取 IBUS 电流。从 `0x11` 连续读两字节，按 `0x08` 的 IBUS 倍率与 RS1 换算。
+
+### `sc8815ReadIbatCurrent`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果，成功时写入`current_a`，A
+
+读取 IBAT 电流。从 `0x13` 连续读两字节，按 `0x08` 的 IBAT 倍率与 RS2 换算。
+
+### `sc8815ReadAdinVoltage`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果，成功时写入`voltage_mv`，mV
+
+读取 ADIN 电压。从 `0x15` 连续读两字节，按 2 mV/步换算。
+
+### `sc8815GetStatus`
+
+- **输入** `chip`
+- **输出** `bool` 操作结果，成功时写入`status`，`Sc8815Status`
+
+读取中断状态。读 `0x17` 并拆出 AC_OK、INDET、VBUS_SHORT、OTP、EOC。读取会清除 INDET。
+
+### `sc8815SetIrqMask`
+
+- **输入** `chip`、`config`，`Sc8815IrqMaskConfig`
+- **输出** `bool` 操作结果
+
+写入中断掩码。读改写 `0x19`，保留 [7] 和 [4]，将 [0] 置 1。
 
 ### 编码与换算
 

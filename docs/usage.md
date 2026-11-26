@@ -37,12 +37,12 @@ ESP-IDF 的总线初始化、回调实现和采样循环见 [README 完整示例
 
 | 配置函数 | 主要职责 |
 | --- | --- |
-| `sc8815ConfigureBatteryCharging` | 设置内阻补偿、VBAT 设定方式、串联节数及单节电压 |
-| `sc8815ConfigureMeasurementAndLimitRatios` | 设置 IBAT、IBUS、VBAT 和 VBUS 检测倍率 |
-| `sc8815ConfigureModeAndSwitching` | 设置 OTG、VINREG 倍率、开关频率及死区 |
-| `sc8815ConfigureChargingAndFeedback` | 设置电流检测、反馈来源、充电与过压保护选项 |
-| `sc8815ConfigureDitheringAndSlewRate` | 设置工厂位、扩频抖动和参考电压变化斜率 |
-| `sc8815ConfigurePowerPathAndMonitoring` | 设置功率路径、ADC、控制环路和短路折返 |
+| `sc8815VbatSet` | 设置内阻补偿、VBAT 设定方式、串联节数及单节电压 |
+| `sc8815Ratio` | 设置 IBAT、IBUS、VBAT 和 VBUS 检测倍率 |
+| `sc8815Ctrl0Set` | 设置 OTG、VINREG 倍率、开关频率及死区 |
+| `sc8815Ctrl1Set` | 设置电流检测、反馈来源、充电与过压保护选项 |
+| `sc8815Ctrl2Set` | 设置工厂位、扩频抖动和参考电压变化斜率 |
+| `sc8815Ctrl3Set` | 设置功率路径、ADC、控制环路和短路折返 |
 | `sc8815SetIrqMask` | 配置芯片中断掩码 |
 
 配置类型和取值见 [sc8815_reg.h](../sc8815_reg.h)。设置检测比例时选用枚举列出的有效值，并按实装电路填写采样电阻和反馈参数。
@@ -51,15 +51,15 @@ ESP-IDF 的总线初始化、回调实现和采样循环见 [README 完整示例
 
 | 接口 | 参数或读数 |
 | --- | --- |
-| `sc8815SetVbusRefI`、`sc8815SetVbusRefE` | 传入所选反馈路径的参考电压，单位 mV，寄存器步进为 2 mV |
-| `sc8815SetVinreg` | 传入 VINREG 电压，单位 mV，步进取决于芯片的 40× 或 100× 倍率设置 |
-| `sc8815SetIbusLimit`、`sc8815SetIbatLimit` | 传入电流上限，单位 A。驱动读取当前检测倍率，再结合 RS1 或 RS2 计算寄存器编码 |
+| `sc8815VbusRefISet`、`sc8815VbusRefESet` | 传入所选反馈路径的参考电压，单位 mV，寄存器步进为 2 mV |
+| `sc8815VinregSet` | 传入 VINREG 电压，单位 mV，步进取决于芯片的 40× 或 100× 倍率设置 |
+| `sc8815IbusLimSet`、`sc8815IbatLimSet` | 传入电流上限，单位 A。驱动读取当前检测倍率，再结合 RS1 或 RS2 计算寄存器编码 |
 | `sc8815ReadVbusVoltage`、`sc8815ReadVbatVoltage`、`sc8815ReadAdinVoltage` | 读取电压，单位 mV |
 | `sc8815ReadIbusCurrent`、`sc8815ReadIbatCurrent` | 读取电流，单位 A |
 | `sc8815ReadRegister` | 读取指定寄存器的一个原始字节 |
 | `sc8815GetStatus` | 读取并解析状态寄存器。读取会清除 INDET |
 
-按反馈网络和芯片允许范围计算参考电压，再传入满足步进的数值。外部反馈模式下，参考电压和输出端目标电压由电阻分压关系关联。调用前检查参考电压和 VINREG 的编码范围，驱动按寄存器位宽编码。读取 ADC 前通过 `sc8815ConfigurePowerPathAndMonitoring()` 设置 `AdStart`，并等待板级电路与读数稳定。
+按反馈网络和芯片允许范围计算参考电压，再传入满足步进的数值。外部反馈模式下，参考电压和输出端目标电压由电阻分压关系关联。调用前检查参考电压和 VINREG 的编码范围，驱动按寄存器位宽编码。读取 ADC 前通过 `sc8815Ctrl3Set()` 设置 `AdStart`，并等待板级电路与读数稳定。
 
 ## 错误处理与并发
 

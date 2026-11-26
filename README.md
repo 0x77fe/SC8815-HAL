@@ -82,23 +82,23 @@ extern "C" void app_main()
     const Sc8815 chip{boardI2cTransfer, sc8815_i2c_address, 10.0f, 10.0f};
     const bool configured =
         sc8815Begin(chip) &&
-        sc8815ConfigureBatteryCharging(chip,
+        sc8815VbatSet(chip,
             {SC8815_IRCOMP_0mOhm, SC8815_VBAT_SEL_EXTERNAL, SC8815_CSEL_1S, SC8815_VCELL_4V20}) &&
-        sc8815ConfigureMeasurementAndLimitRatios(chip,
+        sc8815Ratio(chip,
             {SC8815_IBAT_RATIO_6x, SC8815_IBUS_RATIO_6x, SC8815_VBAT_MON_RATIO_12_5x, SC8815_VBUS_RATIO_12_5x}) &&
-        sc8815ConfigureModeAndSwitching(chip,
+        sc8815Ctrl0Set(chip,
             {SC8815_EN_OTG_ENABLE, SC8815_VINREG_RATIO_100x, SC8815_FREQ_300kHz, SC8815_DT_20ns}) &&
-        sc8815ConfigureChargingAndFeedback(chip,
+        sc8815Ctrl1Set(chip,
             {SC8815_ICHAR_SEL_IBUS, SC8815_DIS_TRICKLE_ENABLE, SC8815_DIS_TERM_ENABLE,
              SC8815_FB_SEL_EXTERNAL, SC8815_TRICKLE_SET_70, SC8815_DIS_OVP_DISABLE}) &&
-        sc8815ConfigureDitheringAndSlewRate(chip,
+        sc8815Ctrl2Set(chip,
             {SC8815_FACTORY_POWERUP, SC8815_EN_DITHER_DISABLE, SC8815_SLEW_SET_2mV_us}) &&
-        sc8815ConfigurePowerPathAndMonitoring(chip,
+        sc8815Ctrl3Set(chip,
             {SC8815_EN_PGATE_OFF, SC8815_GPO_CTRL_OD, SC8815_AD_START_ENABLE, SC8815_ILIM_BW_SEL_5K,
              SC8815_LOOP_SET_IMPROVE, SC8815_DIS_SHORT_FOLDBACK_ENABLE, SC8815_EOC_SET_1_10, SC8815_EN_PFM_DISABLE}) &&
         sc8815SetIrqMask(chip, {}) &&
-        sc8815SetVbusRefE(chip, 800) &&
-        sc8815SetIbusLimit(chip, 1.0f);
+        sc8815VbusRefESet(chip, 800) &&
+        sc8815IbusLimSet(chip, 1.0f);
     if (!configured)
     {
         ESP_LOGE("sc8815", "Configuration failed");
