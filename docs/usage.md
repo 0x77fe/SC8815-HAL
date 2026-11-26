@@ -26,35 +26,7 @@ target_link_libraries(your_app PRIVATE SC8815::HAL)
 
 返回 `true` 表示整笔事务成功，NACK、超时或传输失败时返回 `false`。回调返回前完成传输，缓冲区的有效期覆盖本次调用。探测由 `sc8815Begin()` 完成。
 
-### ESP-IDF 回调示例
-
-先初始化 `bus` 并注册 `device`，设备地址设为 `sc8815_i2c_address`。以下示例绑定一个 SC8815 设备。
-
-```cpp
-#include "driver/i2c_master.h"
-#include "sc8815.h"
-
-static i2c_master_bus_handle_t bus;
-static i2c_master_dev_handle_t device;
-
-/*
-* 使用 ESP-IDF I²C 主机驱动执行同步传输。
-*/
-bool boardI2cTransfer(std::uint8_t address, std::span<const std::uint8_t> write,
-                      std::span<std::uint8_t> read)
-{
-    // 确认请求指向已注册的设备。
-    if (address != sc8815_i2c_address) return false;
-    constexpr int timeout_ms = 10;
-
-    // 按缓冲区组合执行对应事务。
-    if (write.empty() && read.empty()) return i2c_master_probe(bus, address, timeout_ms) == ESP_OK;
-    if (write.empty()) return i2c_master_receive(device, read.data(), read.size(), timeout_ms) == ESP_OK;
-    if (read.empty()) return i2c_master_transmit(device, write.data(), write.size(), timeout_ms) == ESP_OK;
-    return i2c_master_transmit_receive(device, write.data(), write.size(),
-                                       read.data(), read.size(), timeout_ms) == ESP_OK;
-}
-```
+ESP-IDF 的总线初始化、回调实现和采样循环见 [README 完整示例](../README.md#esp-idf-完整示例)。寄存器表和函数逐项说明见 [寄存器与 API 参考](reference.md)。
 
 ## 初始化及配置
 
