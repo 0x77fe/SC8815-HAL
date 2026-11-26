@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.16)
+
+if(COMMAND idf_component_register)
+    idf_component_register(SRCS sc8815.cpp INCLUDE_DIRS ".")
+    target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_20)
+else()
+    project(SC8815_HAL LANGUAGES CXX)
+    add_library(sc8815_hal STATIC sc8815.cpp)
+    add_library(SC8815::HAL ALIAS sc8815_hal)
+    target_include_directories(sc8815_hal PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(sc8815_hal PUBLIC cxx_std_20)
+endif()
